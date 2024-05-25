@@ -1,6 +1,6 @@
 *.txt
 *.out
-threadpool.out.dSYM/*
+*.dSYM/*
 compose.yaml
 Dockerfile
 main.go

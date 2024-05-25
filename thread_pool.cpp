@@ -10,6 +10,8 @@
 
 using namespace std;
 
+
+
 struct hashnode{
   char city[50] = "\0";
   int len = 0;
@@ -18,8 +20,9 @@ struct hashnode{
   int count = 0;
 
   hashnode(){}
-  hashnode(char * c, int l){
+  hashnode(const char * c, int l){
     memcpy(this->city, c, l + 1);
+    this->city[l] = '\0';
     this->len = l;
   }
   void node_insert(int value){
@@ -56,18 +59,71 @@ struct hashmap{
   hashmap(){
     memset(this->hashtable, -1, this->max_size*sizeof(int));
   }
-  void hash_insert(char * city, int len, int value){
+
+  unsigned int hash (const char *str, unsigned int len)
+  {
+    static unsigned short asso_values[] =
+      {
+        1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269,
+        1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269,
+        1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269,
+        1269, 1269,  110, 1269, 1269, 1269, 1269, 1269, 1269,    0,
+        1269,    0, 1269, 1269, 1269,    0,    0, 1269, 1269, 1269,
+        1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269,
+        1269, 1269, 1269, 1269, 1269,  145,   10,  240,   65,  175,
+          33,  413,  320,  280,   30,  190,  325,    0,  340,  335,
+        170, 1269,  385,  105,  115,   40,  456,  190,    0,  340,
+          0, 1269, 1269, 1269, 1269, 1269, 1269,    0,  280,  280,
+        310,   15,   15,  250,  225,    5,  210,   35,   25,   90,
+          0,   30,  325,    5,    5,   20,  105,  200,  275,  315,
+          5,  260,  130, 1269, 1269, 1269, 1269, 1269, 1269, 1269,
+        1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269,
+        1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269,
+        1269, 1269, 1269,    0, 1269, 1269, 1269, 1269, 1269, 1269,
+        1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269,    5,  325,
+        1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269,
+        1269, 1269, 1269, 1269,   20, 1269, 1269, 1269,   10, 1269,
+        1269, 1269, 1269, 1269, 1269,    5,   10,    0, 1269, 1269,
+        1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269,
+        1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269,
+        1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269,
+        1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269,
+        1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269, 1269,
+        1269, 1269, 1269, 1269, 1269, 1269
+      };
+    unsigned int hval = len;
+
+    switch (hval)
+      {
+        default:
+          hval += asso_values[(unsigned char)str[4]];
+        /*FALLTHROUGH*/
+        case 4:
+        case 3:
+          hval += asso_values[(unsigned char)str[2]];
+        /*FALLTHROUGH*/
+        case 2:
+        case 1:
+          hval += asso_values[(unsigned char)str[0]];
+          break;
+      }
+    return hval + asso_values[(unsigned char)str[len - 1]];
+  }
+
+  void hash_insert(const char * city, int len, int value){
     // hashfunction to create int out of string
     // int index = fnv1a_hashfunc(city, len);
-    unsigned int hash = fnv1a_hashfunc(city, len);
-    size_t index = (size_t)(hash & (unsigned int)(max_size - 1));
+    // unsigned int hash = fnv1a_hashfunc(city, len);
+    // size_t index = (size_t)(hash & (unsigned int)(max_size - 1));
+    unsigned int index = hash(city, len);
+    // int index = hashfunc(city, len);
     // cout<<index<<endl;
     // linear probing
     // checking from hashtable if it contains value then checking if it's the same city as given in arg
-    while(hashtable[index] != -1 && (len != ht2[index].len || (memcmp(ht2[index].city, city, len) != 0))){
-      index++;
-      index %= this->max_size;
-    }
+    // while(hashtable[index] != -1 && (len != ht2[index].len || (memcmp(ht2[index].city, city, len) != 0))){
+    //   index++;
+    //   index %= this->max_size;
+    // }
     if(hashtable[index] == -1){
       ht2[index] = hashnode(city, len);
       hashtable[index] = 1;
@@ -77,12 +133,14 @@ struct hashmap{
 
   void final_hash_insert(char * city, int len, int minval, int maxval, long long int totalval, int countval){
     // int index = fnv1a_hashfunc(city, len);
-    unsigned int hash = fnv1a_hashfunc(city, len);
-    size_t index = (size_t)(hash & (unsigned int)(max_size - 1));
-    while(hashtable[index] != -1 && (len != ht2[index].len || (memcmp(ht2[index].city, city, len) != 0))){
-      index++;
-      index %= max_size;
-    }
+    // unsigned int hash = fnv1a_hashfunc(city, len);
+    // size_t index = (size_t)(hash & (unsigned int)(max_size - 1));
+    unsigned int index = hash(city, len);
+    // int index = hashfunc(city, len);
+    // while(hashtable[index] != -1 && (len != ht2[index].len || (memcmp(ht2[index].city, city, len) != 0))){
+    //   index++;
+    //   index %= max_size;
+    // }
     if(hashtable[index] == -1){
       ht2[index] = hashnode(city, len);
       hashtable[index] = 1;
@@ -90,13 +148,14 @@ struct hashmap{
     ht2[index].final_insert(minval, maxval, totalval, countval);
   }
 
-  unsigned int hashfunc(char * city, int len){
-    return ((city[0]<<14) | (city[len - 1]<<6) | len) % this->max_size;
+  unsigned int hashfunc(const char * city, int len){
+    // return ((city[0]<<14) | (city[len - 1]<<6) | len) % this->max_size;
+    return (city[0]^city[len-1]^len)%max_size;
   }
 
   // 13 bit fnv1a hash function
   // http://www.isthe.com/chongo/tech/comp/fnv/
-  unsigned int fnv1a_hashfunc(char * city, int len){
+  unsigned int fnv1a_hashfunc(const char * city, int len){
     unsigned const int fnv_prime = 16777619;
     // unsigned const int mask = ((1<<13) - 1);
     unsigned int hash = 2166136261;
@@ -113,7 +172,7 @@ struct hashmap{
 
 };
 
-int custom_atof(char * line, int line_length){
+int custom_atof(const char * line, int line_length){
     int fval = 1;
     int tmp = 1;
     // if(line[0] == '-'){
@@ -164,6 +223,10 @@ void city_parser(char * city, char * line, int & line_length, int & city_len){
     // cout<<city<<" "<<line<<endl;
 }
 
+void line_parser(hashmap & res, const char * chunk, int city_len, int val_length){
+  int ival = custom_atof(chunk - val_length, val_length);
+  res.hash_insert(chunk - val_length - city_len - 1, city_len, ival);
+}
 
 // todo try to remove line character array from process function and use chunk directly to copy in hashmap
 void process(hashmap &res, const char * chunk, int chunk_len){
@@ -181,19 +244,22 @@ void process(hashmap &res, const char * chunk, int chunk_len){
       switch (chunk[i]){
       case ';':
         /* code */
-        city_parser(city, line, line_length, city_len);
+        // city_parser(city, line, line_length, city_len);
+        city_len = line_length;
+        line_length = 0;
         break;
       case '\n':
-        line[line_length] = '\0';
+        // line[line_length] = '\0';
         // cout<<line<<endl;
-        ival = custom_atof(line, line_length);
-        res.hash_insert(city, city_len, ival);
+        // ival = custom_atof(line, line_length);
+        // res.hash_insert(city, city_len, ival);
+        line_parser(res, chunk + i, city_len, line_length);
         line_length = 0;
         break;
       case '\0':
         return ;
       default:
-        line[line_length] = chunk[i];
+        // line[line_length] = chunk[i];
         line_length++;
         break;
       }
@@ -427,6 +493,7 @@ int main(){
     for(int i = 0; i < final_res.max_size; i++){
       if(final_res.hashtable[i] != -1){
         hashnode tmp = final_res.ht2[i];
+        // cout<<tmp.city<<"\n";
         cout<<tmp.city<<" "<<tmp.min_val<<" "<<tmp.max_val<<" "<<tmp.total_sum<<" "<<tmp.count<<endl;
         total_count += tmp.count;
       }
