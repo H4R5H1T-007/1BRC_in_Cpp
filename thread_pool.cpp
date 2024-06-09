@@ -116,6 +116,7 @@ struct hashmap{
     // unsigned int hash = fnv1a_hashfunc(city, len);
     // size_t index = (size_t)(hash & (unsigned int)(max_size - 1));
     unsigned int index = hash(city, len);
+    // unsigned int index = hash_index;
     // int index = hashfunc(city, len);
     // cout<<index<<endl;
     // linear probing
@@ -135,12 +136,20 @@ struct hashmap{
     // int index = fnv1a_hashfunc(city, len);
     // unsigned int hash = fnv1a_hashfunc(city, len);
     // size_t index = (size_t)(hash & (unsigned int)(max_size - 1));
-    unsigned int index = hash(city, len);
+    // unsigned int index = hash(city, len);
+    unsigned int index = 0;
+    int temp = 0;
+    while(temp != len){
+      index = (index * 31) + (unsigned char)city[temp];
+      temp++;
+    }
+    // index %= max_size;
+    index = (index & (max_size - 1));
     // int index = hashfunc(city, len);
-    // while(hashtable[index] != -1 && (len != ht2[index].len || (memcmp(ht2[index].city, city, len) != 0))){
-    //   index++;
-    //   index %= max_size;
-    // }
+    while(hashtable[index] != -1 && (len != ht2[index].len || (memcmp(ht2[index].city, city, len) != 0))){
+      index++;
+      index %= max_size;
+    }
     if(hashtable[index] == -1){
       ht2[index] = hashnode(city, len);
       hashtable[index] = 1;
@@ -228,8 +237,7 @@ void line_parser(hashmap & res, const char * chunk, int city_len, int val_length
   res.hash_insert(chunk - val_length - city_len - 1, city_len, ival);
 }
 
-// todo try to remove line character array from process function and use chunk directly to copy in hashmap
-void process(hashmap &res, const char * chunk, int chunk_len){
+static void process(hashmap &res, const char * chunk, int chunk_len){
     char line[50];
     int line_length = 0;
     char city[50];
@@ -238,32 +246,75 @@ void process(hashmap &res, const char * chunk, int chunk_len){
     int ival;
     // cout<<chunk<<endl;
     // int count = 0;
-    
-    // fetching city name and value from each line
-    for(int i = 0; i < chunk_len; i++){
-      switch (chunk[i]){
-      case ';':
-        /* code */
-        // city_parser(city, line, line_length, city_len);
-        city_len = line_length;
-        line_length = 0;
-        break;
-      case '\n':
-        // line[line_length] = '\0';
-        // cout<<line<<endl;
-        // ival = custom_atof(line, line_length);
-        // res.hash_insert(city, city_len, ival);
-        line_parser(res, chunk + i, city_len, line_length);
-        line_length = 0;
-        break;
-      case '\0':
-        return ;
-      default:
-        // line[line_length] = chunk[i];
-        line_length++;
-        break;
-      }
+    const char * start = chunk;
+    const char * end = chunk + chunk_len;
+    while(start != end && *(end-1) != '\n'){
+      end--;
     }
+    
+    while(start != end){
+      unsigned int len = 0;
+      unsigned int h = 0;
+      const char * linestart = start;
+      while (start[len] != ';') {
+        h = (h * 31) + (unsigned char)start[len];
+        len += 1;
+      }
+      // h %= res.max_size;
+      h = (h & (res.max_size - 1));
+      while(res.hashtable[h] != -1 && (len != res.ht2[h].len || (memcmp(res.ht2[h].city, start, len) != 0))){
+        h++;
+        h %= res.max_size;
+      }
+      start += len + 1;
+
+      int mod = 1;
+      if (*start == '-') {
+        mod = -1;
+        start++;
+      }
+
+      if (start[1] == '.') {
+        ival = ((start[0] * 10) + start[2] - ('0' * 11)) * mod;
+        start += 4;
+      }
+      else{
+        ival = (start[0] * 100 + start[1] * 10 + start[3] - ('0' * 111)) * mod;
+        start += 5;
+      }
+
+      if(res.hashtable[h] == -1){
+        res.hashtable[h] = 1;
+        res.ht2[h] = hashnode(linestart, len);
+      }
+      res.ht2[h].node_insert(ival);
+    }
+    // cout<<"Done"<<endl;
+    // // fetching city name and value from each line
+    // for(int i = 0; i < chunk_len; i++){
+    //   switch (chunk[i]){
+    //   case ';':
+    //     /* code */
+    //     // city_parser(city, line, line_length, city_len);
+    //     city_len = line_length;
+    //     line_length = 0;
+    //     break;
+    //   case '\n':
+    //     // line[line_length] = '\0';
+    //     // cout<<line<<endl;
+    //     // ival = custom_atof(line, line_length);
+    //     // res.hash_insert(city, city_len, ival);
+    //     line_parser(res, chunk + i, city_len, line_length);
+    //     line_length = 0;
+    //     break;
+    //   case '\0':
+    //     return ;
+    //   default:
+    //     // line[line_length] = chunk[i];
+    //     line_length++;
+    //     break;
+    //   }
+    // }
     //   if(chunk[i] == ';'){
     //       // line[line_length] = '\0';
     //       // memcpy(city, line, line_length + 1);
@@ -316,8 +367,8 @@ void process(hashmap &res, const char * chunk, int chunk_len){
 // used https://stackoverflow.com/questions/15752659/thread-pooling-in-c11 and modified a bit for our usecase
 struct threadpool{
     vector<thread> threads;
-    queue< pair <string, int> > jobs_queue;
-    int qsize = 16;
+    queue< pair <char*, int> > jobs_queue;
+    int qsize = 100;
     int max_threads;
     mutex queue_mutex;
     condition_variable mutex_condition;
@@ -339,7 +390,7 @@ struct threadpool{
         while (true) {
             // std::function<void()> job;
             // cout<<"job"<<endl;
-            pair<string, int> param;
+            pair<char *, int> param;
             {
                 std::unique_lock<std::mutex> lock(queue_mutex);
                 // queue_full.wait(lock, [this] {
@@ -357,20 +408,21 @@ struct threadpool{
                 // cout<<param.first<<endl;
                 qsize++;
             }
-            process(res, param.first.c_str(), param.second);
+            process(res, param.first, param.second);
+            delete[] param.first;
         }
     }
 
     void queue_push(char * chunk, int len){
         // char temp[len];
         // memcpy(temp, chunk, len);
-        string temp(chunk);
+        // string temp(chunk);
         {
             unique_lock<mutex> lock(queue_mutex);
             // queue_full.wait(lock, [this] {
             //     return jobs_queue.size() >= max_qsize;
             // });
-            jobs_queue.push({temp, len});
+            jobs_queue.push({chunk, len});
             qsize--;
         }
         mutex_condition.notify_one();
@@ -423,8 +475,7 @@ void read_chunk(ifstream & file, char *chunk, size_t chunk_size, int &chunk_len)
 
 int main(){
     ifstream file = ifstream("/Users/harshitgupta/Developer/Timepass/DockerFiles/measurements.txt", ios::binary);
-    int chunk_size = 5e5;
-    char chunk[chunk_size + 30];
+    int chunk_size = 64e6;
     int chunk_len = 0;
     int max_thread = 7;
     // cout<<"test"<<endl;
@@ -435,10 +486,26 @@ int main(){
     }
     threadpool tp = threadpool(max_thread, res);
     int count = 0;
-    for(read_chunk(file, chunk, chunk_size, chunk_len); chunk[0] != '\0'; read_chunk(file, chunk, chunk_size, chunk_len)){
-      while(tp.queue_full());
+    // for(read_chunk(file, chunk, chunk_size, chunk_len); chunk[0] != '\0'; read_chunk(file, chunk, chunk_size, chunk_len)){
+    //   while(tp.queue_full());
+    //   tp.queue_push(chunk, chunk_len);
+    //   count++;
+    //   // if(count == 1){
+    //   //   break;
+    //   // }
+    // }
+    
+
+    char * chunk = new char[1];
+    chunk[0] = '0';
+    // read_chunk(file, chunk, chunk_size, chunklen);
+    while(chunk[0] != '\0'){
+      // cout<<chunk[0]<<endl;
+      chunk = new char[chunk_size + 50];
+      read_chunk(file, chunk, chunk_size, chunk_len);
+      // while(tp.queue_full());
       tp.queue_push(chunk, chunk_len);
-      count++;
+      // count++;
       // if(count == 1){
       //   break;
       // }
@@ -446,6 +513,7 @@ int main(){
 
     while(tp.stop_busy());
     tp.stop();
+    // cout<<"Thread work completed\n";
 
     // hashmap final_res = hashmap();
     // vector<char*> final_cities;
